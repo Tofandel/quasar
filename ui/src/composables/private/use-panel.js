@@ -1,4 +1,4 @@
-import { h, ref, computed, watch, nextTick, getCurrentInstance, Transition, KeepAlive } from 'vue'
+import { h, ref, computed, watch, nextTick, getCurrentInstance, Transition, KeepAlive, withDirectives, vShow } from 'vue'
 
 import TouchSwipe from '../../directives/TouchSwipe.js'
 
@@ -197,30 +197,39 @@ export default function () {
     return true
   }
 
-  function getPanelContentChild () {
-    const panel = isValidPanelName(props.modelValue) === true
-      && updatePanelIndex()
-      && panels[ panelIndex.value ]
+  function getPanelContentChild (panel = undefined) {
+    if (panel === undefined) {
+      panel = isValidPanelName(props.modelValue) === true
+        && updatePanelIndex()
+        && panels[ panelIndex.value ]
+    }
+    const isActive = panel.props.name === panel.props.name;
 
     return props.keepAlive === true
       ? [
           h(KeepAlive, keepAliveProps.value, [
-            h(
-              needsUniqueKeepAliveWrapper.value === true
-                ? getCacheWithFn(contentKey.value, () => ({ ...PanelWrapper, name: contentKey.value }))
-                : PanelWrapper,
-              { key: contentKey.value, style: transitionStyle.value },
-              () => panel
+            withDirectives(
+              h(
+                needsUniqueKeepAliveWrapper.value === true
+                  ? getCacheWithFn(contentKey.value, () => ({ ...PanelWrapper, name: contentKey.value }))
+                  : PanelWrapper,
+                { key: contentKey.value, style: transitionStyle.value },
+                () => panel
+              ),
+              [[ vShow, isActive ]]
             )
           ])
         ]
       : [
-          h('div', {
-            class: 'q-panel scroll',
-            style: transitionStyle.value,
-            key: contentKey.value,
-            role: 'tabpanel'
-          }, [ panel ])
+          withDirectives(
+            h('div', {
+              class: 'q-panel scroll',
+              style: transitionStyle.value,
+              key: contentKey.value,
+              role: 'tabpanel'
+            }, [ panel ]),
+            [[ vShow, isActive ]]
+          )
         ]
   }
 
@@ -232,6 +241,12 @@ export default function () {
     return props.animated === true
       ? [ h(Transition, { name: panelTransition.value }, getPanelContentChild) ]
       : getPanelContentChild()
+  }
+  
+  function getEagerPanelsContent () {
+    return panels.filter((panel) => panel.props.eager).map((panel) => props.animated === true
+      ? [ h(Transition, { name: panelTransition.value }, getPanelContentChild) ]
+      : getPanelContentChild(panel))
   }
 
   function updatePanelsList (slots) {
@@ -265,6 +280,7 @@ export default function () {
     updatePanelIndex,
 
     getPanelContent,
+    getEagerPanelsContent,
     getEnabledPanels,
     getPanels,
 
