@@ -9,7 +9,8 @@ import { getNormalizedVNodes } from '../../utils/private/vm.js'
 
 export const usePanelChildProps = {
   name: { required: true },
-  disable: Boolean
+  disable: Boolean,
+  eager: Boolean,
 }
 
 const PanelWrapper = {
@@ -203,50 +204,47 @@ export default function () {
         && updatePanelIndex()
         && panels[ panelIndex.value ]
     }
-    const isActive = panel.props.name === panel.props.name;
 
     return props.keepAlive === true
       ? [
           h(KeepAlive, keepAliveProps.value, [
-            withDirectives(
-              h(
-                needsUniqueKeepAliveWrapper.value === true
-                  ? getCacheWithFn(contentKey.value, () => ({ ...PanelWrapper, name: contentKey.value }))
-                  : PanelWrapper,
-                { key: contentKey.value, style: transitionStyle.value },
-                () => panel
-              ),
-              [[ vShow, isActive ]]
+            h(
+              needsUniqueKeepAliveWrapper.value === true
+                ? getCacheWithFn(contentKey.value, () => ({ ...PanelWrapper, name: contentKey.value }))
+                : PanelWrapper,
+              { key: contentKey.value, style: transitionStyle.value },
+              () => panel
             )
           ])
         ]
       : [
-          withDirectives(
-            h('div', {
-              class: 'q-panel scroll',
-              style: transitionStyle.value,
-              key: contentKey.value,
-              role: 'tabpanel'
-            }, [ panel ]),
-            [[ vShow, isActive ]]
-          )
+          h('div', {
+            class: 'q-panel scroll',
+            style: transitionStyle.value,
+            key: contentKey.value,
+            role: 'tabpanel'
+          }, [ panel ])
         ]
   }
 
-  function getPanelContent () {
+  function getPanelContent (panel = undefined) {
     if (panels.length === 0) {
       return
     }
 
     return props.animated === true
-      ? [ h(Transition, { name: panelTransition.value }, getPanelContentChild) ]
-      : getPanelContentChild()
+      ? [ h(Transition, { name: panelTransition.value }, () => getPanelContentChild(panel)) ]
+      : getPanelContentChild(panel)
   }
   
-  function getEagerPanelsContent () {
-    return panels.filter((panel) => panel.props.eager).map((panel) => props.animated === true
-      ? [ h(Transition, { name: panelTransition.value }, getPanelContentChild) ]
-      : getPanelContentChild(panel))
+  function renderEagerPanels (callback) {
+    return panels
+      .filter((panel) => panel.props.eager)
+       .map((panel) => withDirectives(
+          callback(getPanelContent(panel)),
+          [[vShow, panel.props.name === props.modelValue]]
+        )
+      )
   }
 
   function updatePanelsList (slots) {
